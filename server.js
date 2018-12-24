@@ -55,7 +55,15 @@ app.post("/api/exercise/add", (req, res) => {
   })
     .then(data =>
       _getExercise(req.body.userId)
-        .then(data => res.json(data))
+        .then(data =>
+          res.json({
+            username: data.username,
+            _id: req.body.userId,
+            duration: new Number(req.body.duration),
+            description: req.body.description,
+            data: req.body.date ? new Date(req.body.date) : new Date()
+          })
+        )
         .catch(err => res.json(err))
     )
     .catch(err => res.json(err));
@@ -72,7 +80,8 @@ app.get("/api/exercise/log", (req, res) => {
             );
           if (!isNaN(new Date(req.query.to).getTime()))
             exercises = exercises.filter(_ => _.date <= new Date(req.query.to));
-          if (!isNaN(req.query.limit)) exercises = exercises.slice(0, parseInt(req.query.limit))
+          if (!isNaN(req.query.limit))
+            exercises = exercises.slice(0, parseInt(req.query.limit));
           res.json({
             _id: data._id,
             username: data.username,
@@ -130,6 +139,6 @@ function _getExercise(userId) {
 
 function _getExercises() {
   return Exercise.find({})
-    .select("-__v -log._id")
+    .select("_id username")
     .exec();
 }
