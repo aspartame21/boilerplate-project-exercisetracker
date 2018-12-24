@@ -51,7 +51,9 @@ app.post("/api/exercise/add", (req, res) => {
   _addExercise(req.body.userId, {
     description: req.body.description,
     duration: new Number(req.body.duration),
-    date: req.body.date ? new Date(req.body.date).toString().substring(0,15) : new Date().toString().substring(0,15)
+    date: req.body.date
+      ? new Date(req.body.date).toString().substring(0, 15)
+      : new Date().toString().substring(0, 15)
   })
     .then(data =>
       _getExercise(req.body.userId)
@@ -61,7 +63,9 @@ app.post("/api/exercise/add", (req, res) => {
             _id: req.body.userId,
             duration: new Number(req.body.duration),
             description: req.body.description,
-            data: (req.body.date ? new Date(req.body.date) : new Date()).toString().substring(0,15)
+            data: (req.body.date ? new Date(req.body.date) : new Date())
+              .toString()
+              .substring(0, 15)
           })
         )
         .catch(err => res.json(err))
@@ -86,7 +90,7 @@ app.get("/api/exercise/log", (req, res) => {
             _id: data._id,
             username: data.username,
             count: exercises.length,
-            exercises
+            log: exercises
           });
         })
         .catch(err => res.json(err))
