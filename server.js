@@ -16,7 +16,6 @@ const Exercise = mongoose.model(
       required: true,
       unique: true
     },
-    count: Number,
     log: [{ description: String, duration: Number, date: Date }]
   })
 );
@@ -33,41 +32,56 @@ app.get("/", (req, res) => {
 
 app.post("/api/exercise/new-user", (req, res) => {
   _createUser(req.body.username)
+    .then(data => res.json({ _id: data.id, username: data.username }))
+    .catch(err => res.json(err));
+});
+
+app.get("/api/exercise/users", (req, res) => {
+  _getExercises()
     .then(data => res.json(data))
     .catch(err => res.json(err));
 });
 
-const _createUser = name =>
-  new Promise((reject, resolve) => {
-    new Exercise({ username: name })
-      .save()
-      .then(data => resolve({ _id: data.id, username: data.username }))
-      .catch(err => reject(err));
-  });
-
-app.get("/api/exercise/users", (req, res) => {
-  // TODO: I can get an array of all users by getting api/exercise/users with the same info as when creating a user.
-});
-
 app.post("/api/exercise/add", (req, res) => {
-  // TODO: I can add an exercise to any user by posting form data userId(_id), description, duration, and optionally date to /api/exercise/add. If no date supplied it will use current date. Returned will the the user object with also with the exercise fields added.
-  const { userId, description, duration, count, date } = req.body
-  // TODO: Add input checks
-  _addExercise(userId, { description, duration, count })
-  .then(data => res.json(data))
-  .catch(err => res.json(err))
-});
+  const inputs = ["userId", "description", "duration"];
+  for (i in inputs)
+    if (Object.keys(req.body).indexOf(inputs[i]) === -1)
+      res.json({ error: "Missing inputs " + input[i] });
 
-const _addExercise = (userId, exercise) =>
-  new Promise((reject, resolve) => {
-    Exercise.findOneAndUpdate({ _id: userId }, { log: exercise })
-      .then(data => resolve(data))
-      .catch(err => reject(err));
-  });
+  _addExercise(req.body.userId, {
+    description: req.body.description,
+    duration: new Number(req.body.duration),
+    date: req.body.date ? new Date(req.body.date) : new Date()
+  })
+    .then(data =>
+      _getExercise(req.body.userId)
+        .then(data => res.json(data))
+        .catch(err => res.json(err))
+    )
+    .catch(err => res.json(err));
+});
 
 app.get("/api/exercise/log", (req, res) => {
-// TODO: I can retrieve a full exercise log of any user by getting /api/exercise/log with a parameter of userId(_id). Return will be the user object with added array log and count (total exercise count).
-// TODO: I can retrieve part of the log of any user by also passing along optional parameters of from & to or limit. (Date format yyyy-mm-dd, limit = int)
+  req.query.userId
+    ? _getExercise(req.query.userId)
+        .then(data => {
+          let exercises = data.log;
+          if (!isNaN(new Date(req.query.from).getTime()))
+            exercises = exercises.filter(
+              _ => _.date >= new Date(req.query.from)
+            );
+          if (!isNaN(new Date(req.query.to).getTime()))
+            exercises = exercises.filter(_ => _.date <= new Date(req.query.to));
+          if (!isNaN(req.query.limit)) exercises = exercises.slice(0, parseInt(req.query.limit))
+          res.json({
+            _id: data._id,
+            username: data.username,
+            count: exercises.length,
+            exercises
+          });
+        })
+        .catch(err => res.json(err))
+    : res.json({ error: "User ID isn't specified" });
 });
 
 // Not found middleware
@@ -99,3 +113,23 @@ app.use((err, req, res, next) => {
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log("Your app is listening on port " + listener.address().port);
 });
+
+function _createUser(name) {
+  return new Exercise({ username: name }).save();
+}
+
+function _addExercise(userId, exercise) {
+  return Exercise.update({ _id: userId }, { $push: { log: exercise } });
+}
+
+function _getExercise(userId) {
+  return Exercise.findOne({ _id: userId })
+    .select("-__v -log._id")
+    .exec();
+}
+
+function _getExercises() {
+  return Exercise.find({})
+    .select("-__v -log._id")
+    .exec();
+}
